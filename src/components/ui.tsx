@@ -95,3 +95,47 @@ export function readFileText(file: File): Promise<string> {
     r.readAsArrayBuffer(file);
   });
 }
+
+/** 「状態」「判断」の列は色付きのラベルで表示する */
+function pillClass(text: string): string {
+  if (/正常|否定|終了|除外可|達成|良好|OK|○/.test(text)) return 'pill g';
+  if (/課題|待ち|注意|要|超過|不足|高い|低い/.test(text)) return 'pill a';
+  return 'pill';
+}
+const PILL_COLS = /^(状態|判断|判定|評価)$/;
+
+/** 自分で作った参照表（メモ）を、指定したページにカードとして出す */
+export function RefCards({ refs, place, first = false }: { refs: import('../types').RefTable[]; place: import('../types').RefPlace; first?: boolean }) {
+  const list = refs.filter((r) => r.place === place);
+  return (
+    <>
+      {list.map((t, i) => {
+        const numCol = t.columns.map((_, j) => j > 0 && t.rows.length > 0 && t.rows.every((r) => /^[\d.,\s—\-+−]+(\s?(kcal|g|kg|%))?(\s?[（(].*)?$/.test(r[j] ?? '')));
+        return (
+          <div className="card" key={t.id} style={first && i === 0 ? undefined : { marginTop: 14 }}>
+            <h3>{t.title}</h3>
+            {t.columns.length > 0 && t.rows.length > 0 && (
+              <div className="tblwrap" style={{ marginTop: 8 }}>
+                <table className="tbl">
+                  <thead><tr>{t.columns.map((c, j) => <th key={j} className={numCol[j] ? 'r' : undefined}>{c}</th>)}</tr></thead>
+                  <tbody>
+                    {t.rows.map((r, k) => (
+                      <tr key={k}>
+                        {t.columns.map((c, j) => (
+                          <td key={j} className={numCol[j] ? 'r num' : j === 0 ? undefined : 'wrap'}>
+                            {PILL_COLS.test(c) && r[j] ? <span className={pillClass(r[j])}>{r[j]}</span> : r[j]}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {t.note && <p className="note" style={{ whiteSpace: 'pre-wrap' }}>{t.note}</p>}
+          </div>
+        );
+      })}
+    </>
+  );
+}

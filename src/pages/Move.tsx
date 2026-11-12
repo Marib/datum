@@ -9,7 +9,7 @@ export function netKcal(mets: number, weightKg: number, minutes: number): number
 }
 
 export default function Move() {
-  const { days, settings, today } = useStore();
+  const { days, settings, today, refs } = useStore();
   const w14 = lastNDays(days, 14, today);
   const exd = w14.filter((d) => d.ex).length;
   const tot = w14.reduce((s, d) => s + (d.ex ?? 0), 0);
@@ -24,11 +24,11 @@ export default function Move() {
 
   return (
     <>
-      <PageHead title="運動" sub={`目標：週${goalDays}日`} />
+      <PageHead title="運動" sub={settings.pageSubs?.move ? `目標：${settings.pageSubs.move}` : `目標：週${goalDays}日`} />
       <div className="grid g3" style={{ marginBottom: 14 }}>
         <Stat title="連続日数" value={streak} unit="日" note="直近で運動した連続日数" color={streak >= 3 ? 'var(--brand)' : undefined} />
-        <Stat title="直近14日" value={`${exd} / 14`} unit="日" note={`目標 ${goalDays * 2}日`} color={exd >= goalDays * 2 ? 'var(--brand)' : 'var(--amber)'} />
-        <Stat title="総消費" value={fmtInt(tot)} unit="kcal" note={`14日分（1日平均 ${fmtInt(tot / 14)}kcal）`} />
+        <Stat title="直近14日" value={`${exd} / ${w14.length}`} unit="日" note={`目標 週${goalDays}回`} color={exd >= goalDays * 2 ? 'var(--brand)' : 'var(--amber)'} />
+        <Stat title="総消費" value={fmtInt(tot)} unit="kcal" note="14日分の運動消費" />
       </div>
 
       <div className="card">
@@ -43,7 +43,7 @@ export default function Move() {
                   return (
                     <tr key={d.date}>
                       <td>{fmtMD(d.date)}</td>
-                      <td className="wrap">{d.ex ? d.exNote ?? '運動あり' : <span className="muted">なし</span>}</td>
+                      <td className="wrap">{d.ex ? d.exNote ?? (d.note ? d.note.split('／').pop()!.trim() : '運動あり') : <span className="muted">なし</span>}</td>
                       <td className="r num">{d.ex ? fmtInt(d.ex) : '—'}</td>
                       <td className="r num" style={{ color: b == null ? undefined : b > 0 ? 'var(--brand)' : 'var(--alert)' }}>{b == null ? '—' : fmtBalance(b)}</td>
                     </tr>
@@ -57,7 +57,21 @@ export default function Move() {
 
       <div className="card" style={{ marginTop: 14 }}>
         <h3>消費カロリーの計算</h3>
-        <p style={{ margin: '6px 0 12px', fontSize: 14 }}>消費 kcal ＝ <b>(メッツ − 1) × 体重kg × 時間h × 1.05</b>（安静にしていても使うぶんを差し引いた正味の値）</p>
+        <p style={{ margin: '8px 0 0', fontSize: 14, lineHeight: 1.75 }}>消費kcal ＝ <b>(メッツ − 1) × 体重kg × 時間h × 1.05</b></p>
+        {refs.filter((r) => r.place === 'move').map((t) => (
+          <div key={t.id}>
+            <div className="tblwrap" style={{ marginTop: 10 }}>
+              <table className="tbl">
+                <tbody>
+                  <tr>{t.columns.map((c, j) => <th key={j} className={j ? 'r' : undefined}>{c}</th>)}</tr>
+                  {t.rows.map((r, k) => <tr key={k}>{t.columns.map((_, j) => <td key={j} className={j ? 'r num' : undefined}>{r[j]}</td>)}</tr>)}
+                </tbody>
+              </table>
+            </div>
+            {t.note && <p className="note">{t.note}</p>}
+          </div>
+        ))}
+        <p className="note" style={{ marginBottom: 12 }}>自分で計算する（安静にしていても使うぶんを差し引いた正味の値）：</p>
         <div className="form">
           <NumField id="m_mets" label="メッツ" step="0.1" value={mets} onChange={setMets} placeholder="例 8.0" hint="下の表で種目を探して入力" />
           <NumField id="m_min" label="時間（分）" value={min} onChange={setMin} />

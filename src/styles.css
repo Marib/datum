@@ -262,3 +262,4 @@ a.flag:hover { filter: brightness(0.98); }
 .meal-item .x { width: 28px; height: 28px; border-radius: 50%; color: var(--ink-3); font-size: 16px; }
 .meal-item .x:hover { background: var(--surface-2); color: var(--alert); }
 .field input:disabled { opacity: .6; }
+a.b { color: inherit; text-decoration: none; }

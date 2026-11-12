@@ -22,6 +22,7 @@ export default function GoalPage() {
   const [targetDate, setTargetDate] = useState(g0?.targetDate ?? addDays(today, 180));
   const [exPerDay, setExPerDay] = useState<number | null>(g0?.exercisePerDay ?? Math.round(avgExercise(days, today)));
   const [applyIntake, setApplyIntake] = useState(g0?.syncIntake ?? true);
+  const [initialWeight, setInitialWeight] = useState<number | null>(g0?.initialWeight ?? null);
 
   const e = settings.energy;
   const valid = startWeight != null && targetWeight != null && isValidISODate(startDate) && isValidISODate(targetDate);
@@ -44,10 +45,10 @@ export default function GoalPage() {
     : plan?.level === 'invalid' ? '期日を開始日より後にすると保存されます'
     : null;
   const status = useAutoSave(
-    { profile, draft: goalOk ? draft : null, exPerDay, applyIntake, rec },
+    { profile, draft: goalOk ? draft : null, exPerDay, applyIntake, rec, initialWeight },
     async (v) => {
       const cur = settingsRef.current;
-      const goal = v.draft ? { ...v.draft, exercisePerDay: v.exPerDay ?? 0, syncIntake: v.applyIntake } : cur.goal;
+      const goal = v.draft ? { ...v.draft, exercisePerDay: v.exPerDay ?? 0, syncIntake: v.applyIntake, initialWeight: v.initialWeight } : cur.goal;
       await updateSettings({
         ...cur,
         profile: v.profile,
@@ -102,6 +103,8 @@ export default function GoalPage() {
           </div>
           <NumField id="g_sw" label="開始時の体重 kg" step="0.1" value={startWeight} onChange={setStartWeight}
             hint={latest != null ? `最新の7日平均 ${fmt1(latest)}kg` : undefined} />
+          <NumField id="g_iw" label="ダイエットを始めたときの体重 kg（任意）" step="0.1" value={initialWeight} onChange={setInitialWeight}
+            hint="ホームの進み具合のバーの左端。空欄なら開始時の体重" />
           <NumField id="g_tw" label="目標体重 kg" step="0.1" value={targetWeight} onChange={setTargetWeight}
             hint={h && targetWeight ? `BMI ${fmt1(bmi(targetWeight, h))}` : undefined}
             error={startWeight != null && targetWeight != null && targetWeight >= startWeight ? '開始体重より軽くしてください' : undefined} />

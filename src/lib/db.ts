@@ -111,6 +111,7 @@ export function normalizeDay(raw: unknown): DayRecord {
   };
 }
 
+const PLACES = ['notes', 'meal', 'move', 'weight', 'sleep', 'judge', 'setup'];
 const SLOT_KEYS = ['breakfast', 'lunch', 'dinner', 'snack'];
 const nutr = (v: unknown) => {
   const o = (v ?? {}) as Record<string, unknown>;
@@ -164,6 +165,7 @@ export function mergeSettings(s: Partial<Settings> | undefined): Settings {
     medication: { ...d.medication, ...s.medication },
     habits: { ...d.habits, ...s.habits },
     bandKg: typeof s.bandKg === 'number' ? s.bandKg : d.bandKg,
+    pageSubs: { ...s.pageSubs },
   };
 }
 
@@ -186,7 +188,7 @@ export function parseBackup(text: string): AllData {
   const refs = Array.isArray(o.refs)
     ? o.refs
         .filter((t): t is RefTable => !!t && typeof t === 'object' && Array.isArray((t as RefTable).columns) && Array.isArray((t as RefTable).rows))
-        .map((t) => ({ id: String(t.id ?? crypto.randomUUID()), title: String(t.title ?? ''), columns: t.columns.map(String), rows: t.rows.map((r) => r.map(String)), note: String(t.note ?? '') }))
+        .map((t) => ({ id: String(t.id ?? crypto.randomUUID()), title: String(t.title ?? ''), columns: t.columns.map(String), rows: t.rows.map((r) => r.map(String)), note: String(t.note ?? ''), ...(PLACES.includes(String(t.place)) ? { place: t.place } : {}) }))
     : [];
   return { days, settings: mergeSettings(o.settings), refs, foodbook: normalizeFoodbook(o.foodbook) };
 }

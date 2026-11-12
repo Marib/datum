@@ -1,199 +1,159 @@
+import type { ReactNode } from 'react';
 import { useStore } from '../store';
-import { coach, weekSummary } from '../lib/coach';
-import { balance, fmt1, fmtBalance, fmtInt, fmtLongDate, fmtMD, isExcludedDay, addDays } from '../lib/calc';
-import { Flag, PageHead } from '../components/ui';
-import { VoiceInput } from '../components/VoiceInput';
-import { useState } from 'react';
+import {
+  addDays, balance, diffDays, fmt1, fmtBalance, fmtInt, fmtMD, isExcludedDay, lastWithWeight, mean,
+  movingAvgWeight, parseISO, planGoal, planWeightAt, sleepMinutes,
+} from '../lib/calc';
+import { Flag } from '../components/ui';
 
+const DOW = ['日', '月', '火', '水', '木', '金', '土'];
+const hm = (m: number) => `${Math.floor(m / 60)}時間${String(Math.round(m) % 60).padStart(2, '0')}分`;
+
+/** ホーム：逆算パネル・今日の残り・直近の記録・注意 */
 export default function Home() {
-  const { days, settings, today, updateSettings } = useStore();
-  const c = coach(days, settings, today);
-  const goal = settings.goal;
+  const { days, settings, today } = useStore();
   const e = settings.energy;
-  const rec = c.todayRecord;
-  const kcal = rec?.kcal ?? 0;
-  const rem = c.todayTarget - kcal;
-  const frac = Math.max(0, Math.min(1, rem / c.todayTarget));
-  const wk = weekSummary(days, settings, addDays(today, -1));
-  const [voice, setVoice] = useState(false);
+  const goal = settings.goal;
+  const med = settings.medication;
+  const lw = lastWithWeight(days);
+  const last = days[days.length - 1];
+  const dt = parseISO(today);
 
-  /* 逆算パネルの見出し */
-  let head: React.ReactNode = 'ゴールを設定しましょう';
-  if (goal && c.remainingKg != null && c.remainingKg <= 0) head = <>目標 <em>{fmt1(goal.targetWeight)}</em> kg に到達</>;
-  else if (goal && c.gap != null) {
-    head = c.gap > 0.15 ? <>計画より <em>{fmt1(c.gap)}kg</em> 遅れています</>
-      : c.gap < -0.15 ? <>計画より <em>{fmt1(-c.gap)}kg</em> 先行しています</>
-      : <>計画どおり <em>{fmt1(c.trend ?? c.current ?? 0)}</em> kg</>;
-  } else if (goal) head = '体重を記録すると、計画との差を出します';
+  /* 逆算パネル */
+  let eyebrow = 'ゴール未設定';
+  let head: ReactNode = 'ゴールを設定しましょう';
+  let verdict: ReactNode = <>目標体重と期日を入れると、1日に必要な赤字と目標摂取を逆算します。 <a href="#goal" style={{ color: 'inherit' }}>ゴールを設定する</a></>;
+  let bar = 0, marker: number | null = null;
+  const start = goal ? goal.initialWeight ?? goal.startWeight : null;
+  if (!days.length) verdict = <>まだ記録がありません。「<a href="#log" style={{ color: 'inherit' }}>記録する</a>」から体重と摂取カロリーを入れてください。</>;
+  if (goal && lw && start != null) {
+    const now = lw.day.weight!;
+    const left = now - goal.targetWeight;
+    const span = start - goal.targetWeight;
+    bar = span > 0 ? Math.max(0, Math.min(1, (start - now) / span)) : 0;
+    const pl = planWeightAt(goal, lw.day.date);
+    marker = span > 0 ? Math.max(0, Math.min(1, (start - pl) / span)) : null;
+    const m = movingAvgWeight(days, lw.index);
+    const gap = (m ?? now) - pl;
+    eyebrow = `目標 ${fmt1(goal.targetWeight)}kg まで、残り ${fmt1(left)}kg`;
+    head = gap > 0.15 ? <>計画より <em>{fmt1(gap)}kg</em> 遅れています</>
+      : gap < -0.15 ? <>計画より <em>{fmt1(-gap)}kg</em> 先行しています</>
+      : <>計画どおり <em>{fmt1(m ?? now)}</em> kg</>;
 
-  let verdict: React.ReactNode;
-  if (!goal) {
-    verdict = <>目標体重と期日を入れると、1日に必要な赤字と目標摂取量を逆算します。 <a className="btn sm" href="#goal">ゴールを設定</a></>;
-  } else if (c.avgBalance14 == null) {
-    verdict = <>摂取カロリーのある日が{c.balanceDays14}日です。3日そろうと、到達予測を出します。</>;
-  } else if (c.avgBalance14 <= 0) {
-    verdict = <>直近{c.balanceDays14}日の平均収支は <b>{fmtBalance(c.avgBalance14)}kcal</b>（黒字）です。このままでは減りません。</>;
-  } else {
-    const perMonth = (c.avgBalance14 * 30.44) / e.kcalPerKg;
-    verdict = (
-      <>
-        直近{c.balanceDays14}日の平均赤字は <b>{fmtInt(c.avgBalance14)}kcal/日</b>（月あたり約{fmt1(perMonth)}kg）。
-        {c.eta && <>このまま続けば <b>{fmtLongDate(c.eta)}</b>ごろ {fmt1(goal.targetWeight)}kg に届く見込みで、</>}
-        期日 {fmtLongDate(goal.targetDate)} に
-        {c.onTrack === 'behind' ? <b>間に合いません</b> : c.onTrack === 'ahead' ? <b>余裕があります</b> : <b>間に合うペース</b>}。
-        {c.onTrack === 'behind' && c.requiredDeficit != null && (
-          <> 期日に合わせるには 1日あたり <b>{fmtInt(c.requiredDeficit)}kcal</b> の赤字が必要です（いまより +{fmtInt(c.requiredDeficit - c.avgBalance14)}kcal）。</>
-        )}
-      </>
-    );
+    const r14 = days.slice(-14).map((d) => balance(d, e)).filter((v): v is number => v != null);
+    const need = planGoal(goal, e, { exercisePerDay: 0 }).dailyDeficit;
+    if (r14.length < 3) {
+      verdict = <>収支のある日が{r14.length}日です。3日そろうと、到達予測を出します。</>;
+    } else {
+      const avg = mean(r14)!;
+      if (avg <= 0) {
+        verdict = <>直近{r14.length}日の平均収支は <b>+{fmtInt(-avg)}kcal</b>（黒字）です。このままでは減りません。食事を削るのではなく、まず<b>運動を1日あたり{fmtInt(-avg + need)}kcal</b>足してください。</>;
+      } else {
+        const eta = addDays(lw.day.date, Math.ceil((left * e.kcalPerKg) / avg));
+        const ed = parseISO(eta);
+        verdict = (
+          <>
+            直近{r14.length}日の平均赤字は <b>{fmtInt(avg)}kcal/日</b>。月あたり <b>{fmt1((avg * 30.44) / e.kcalPerKg)}kg</b> のペースです。
+            {left > 0 && <>このまま続けば <b>{ed.getFullYear()}年{ed.getMonth() + 1}月ごろ</b>に {fmt1(goal.targetWeight)}kg に届きます。</>}
+            {need > 0 && avg < need - 50 && <> <b>目標の{fmtInt(Math.round(need / 10) * 10)}kcal/日には届いていません。</b>運動を足すか、摂取を{fmtInt(e.targetKcal)}kcalに寄せてください。</>}
+            {left > 0 && diffDays(goal.targetDate, eta) > 0 && <> 期日（{fmtMD(goal.targetDate)}）より{Math.round(diffDays(goal.targetDate, eta) / 30.44 * 10) / 10}か月遅れる見込みです。</>}
+          </>
+        );
+      }
+    }
+  } else if (goal) {
+    eyebrow = `目標 ${fmt1(goal.targetWeight)}kg`;
+    head = '体重を記録すると、計画との差を出します';
   }
 
-  const planMarker = goal && c.planToday != null && goal.startWeight !== goal.targetWeight
-    ? Math.max(0, Math.min(1, (goal.startWeight - c.planToday) / (goal.startWeight - goal.targetWeight)))
-    : null;
+  /* 今日の残り（今日の記録が無ければ最後の記録） */
+  const rec = days.find((d) => d.date === today) ?? last ?? null;
+  const tgt = e.targetKcal;
+  const rem = tgt - (rec?.kcal ?? 0);
+  const frac = Math.max(0, Math.min(1, rem / tgt));
   const b = rec ? balance(rec, e) : null;
+
+  /* 注意 */
+  const wk = days.slice(-7);
+  const under = wk.filter((d) => d.kcal != null && d.kcal < e.floorKcal).length;
+  const sl = wk.map(sleepMinutes).filter((v): v is number => v != null);
+  const sa = mean(sl);
+  let streak = 0;
+  for (let k = days.length - 1; k >= 0; k--) { if (days[k].ex) streak++; else break; }
 
   return (
     <>
-      <PageHead title={fmtLongDate(today)} sub={settings.medication.enabled && isExcludedDay(today, settings.medication) ? `${settings.medication.label}（体重の判定対象外）` : undefined} />
+      <div className="phead">
+        <h2>{dt.getMonth() + 1}月{dt.getDate()}日 {DOW[dt.getDay()]}曜</h2>
+        <p>記録 {days.length}日分{med.enabled ? ` ／ ${isExcludedDay(today, med) ? `${med.label}（判定対象外）` : '判定対象の期間'}` : ''}</p>
+      </div>
       <div className="stack">
-        <section className="reverse" aria-label="ゴールまでの進み具合">
-          <p className="eyebrow">
-            {goal && c.remainingKg != null
-              ? `目標 ${fmt1(goal.targetWeight)}kg（${fmtLongDate(goal.targetDate)}）まで、残り ${fmt1(Math.max(0, c.remainingKg))}kg`
-              : goal ? `目標 ${fmt1(goal.targetWeight)}kg` : 'ゴール未設定'}
-          </p>
+        <div className="reverse">
+          <p className="eyebrow">{eyebrow}</p>
           <p className="headline">{head}</p>
-          {goal && (
+          {goal && start != null && (
             <>
-              <div className="track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round((c.progress ?? 0) * 100)}>
-                <i style={{ width: `${((c.progress ?? 0) * 100).toFixed(1)}%` }} />
-                {planMarker != null && <span className="marker" style={{ left: `${(planMarker * 100).toFixed(1)}%` }} title="今日の計画位置" />}
-              </div>
-              <div className="legend">
-                <span>開始 {fmt1(goal.startWeight)}</span>
-                <span>いま {c.trend != null ? `${fmt1(c.trend)}（7日平均）` : c.current != null ? fmt1(c.current) : '—'}</span>
-                <span>目標 {fmt1(goal.targetWeight)}</span>
-              </div>
+              <div className="track"><i style={{ width: `${(bar * 100).toFixed(1)}%` }} />{marker != null && <span className="marker" style={{ left: `${(marker * 100).toFixed(1)}%` }} />}</div>
+              <div className="legend"><span>開始 {fmt1(start)}</span><span>いま {lw ? fmt1(lw.day.weight!) : '—'}</span><span>目標 {fmt1(goal.targetWeight)}</span></div>
             </>
           )}
           <p className="verdict">{verdict}</p>
-        </section>
-
-        <div className="card voice-card">
-          {voice ? (
-            <>
-              <h3>話して記録</h3>
-              <VoiceInput defaultDate={today} autoStart />
-              <div className="actions" style={{ marginTop: 8 }}><button className="btn ghost sm" onClick={() => setVoice(false)}>閉じる</button></div>
-            </>
-          ) : (
-            <button className="voice-cta" onClick={() => setVoice(true)}>
-              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>
-              <span><b>話して記録する</b><small>「体重70.5キロ、1600キロカロリー、ブートキャンプ30分で258キロカロリー」のように話すだけ</small></span>
-            </button>
-          )}
         </div>
 
         <div className="grid g2">
-          <div className="card">
-            <h3>今日やること</h3>
-            <ul className="tasks">
-              {c.tasks.map((t) => (
-                <li key={t.label} className={t.done ? 'done' : ''}>
-                  <span className="ck" aria-hidden="true">{t.done && <svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>}</span>
-                  <span className="label">{t.label}</span>
-                  {t.detail && <span className="detail num">{t.detail}</span>}
-                  <span className="sr-only">{t.done ? '（済）' : '（未）'}</span>
-                </li>
-              ))}
-            </ul>
-            <div className="actions" style={{ marginTop: 10 }}><a className="btn" href={`#log?date=${today}`}>今日の記録を入れる</a></div>
-          </div>
-
           <div className="card">
             <h3>今日の残り</h3>
             <div className="budget">
               <svg className="ring" viewBox="0 0 42 42" aria-hidden="true">
                 <circle cx="21" cy="21" r="17" fill="none" stroke="var(--surface-2)" strokeWidth="6" />
-                <circle cx="21" cy="21" r="17" fill="none" stroke={rem < 0 ? 'var(--alert)' : 'var(--brand)'} strokeWidth="6"
-                  strokeDasharray={`${(frac * 106.8).toFixed(1)} 106.8`} strokeLinecap="round" transform="rotate(-90 21 21)" />
-                <text x="21" y="20.5" textAnchor="middle" style={{ fontSize: 7, fill: 'var(--ink)', fontWeight: 600 }}>{rem > 0 ? fmtInt(rem) : 0}</text>
+                <circle cx="21" cy="21" r="17" fill="none" stroke="var(--brand)" strokeWidth="6" strokeDasharray={`${(frac * 107).toFixed(1)} 107`} strokeLinecap="round" transform="rotate(-90 21 21)" />
+                <text x="21" y="20.5" textAnchor="middle" style={{ fontSize: 7, fill: 'var(--ink)', fontWeight: 600 }}>{rem > 0 ? fmtInt(rem) : '0'}</text>
                 <text x="21" y="26" textAnchor="middle" style={{ fontSize: 3.6, fill: 'var(--ink-3)' }}>kcal 残り</text>
               </svg>
               <div className="bud-list">
-                <div className="bud-row"><span>摂取</span><span><b className="num">{rec?.kcal != null ? fmtInt(rec.kcal) : '—'}</b><span className="unit">/{fmtInt(c.todayTarget)} kcal</span></span></div>
-                <div className="bud-row"><span>たんぱく質</span><span><b className="num">{rec?.p != null ? fmt1(rec.p) : '—'}</b><span className="unit">/{e.proteinG} g</span></span></div>
-                <div className="bud-row"><span>脂質</span><span><b className="num">{rec?.f != null ? fmt1(rec.f) : '—'}</b><span className="unit">/{e.fatG} g</span></span></div>
-                <div className="bud-row"><span>運動</span><span><b className="num">{rec?.ex ? fmtInt(rec.ex) : 0}</b><span className="unit">kcal</span></span></div>
+                <div className="bud-row"><span>摂取</span><span><b className="num">{rec?.kcal != null ? fmtInt(rec.kcal) : '—'}</b><span className="unit">/{fmtInt(tgt)} kcal</span></span></div>
+                <div className="bud-row"><span>たんぱく質</span><span><b className="num">{rec?.p != null ? fmt1(rec.p) : '—'}</b><span className="unit">/{fmtInt(e.proteinG)} g</span></span></div>
+                <div className="bud-row"><span>脂質</span><span><b className="num">{rec?.f != null ? fmt1(rec.f) : '—'}</b><span className="unit">/{fmtInt(e.fatG)} g</span></span></div>
+                <div className="bud-row"><span>運動</span><span><b className="num">{rec?.ex ? fmtInt(rec.ex) : '0'}</b><span className="unit">kcal</span></span></div>
               </div>
             </div>
             <p className="note">
-              {b != null ? <>今日の収支は <b>{fmtBalance(b)}kcal</b>（維持{fmtInt(e.maintenanceKcal)}＋運動−摂取）。</> : '摂取を入れると今日の収支が出ます。'}
-              {' '}下限 {fmtInt(e.floorKcal)}kcal は割らないでください。
+              {rec && rec.date !== today && <>{fmtMD(rec.date)}の記録です。 </>}
+              {b != null ? <>この日の収支は <b>{fmtBalance(b)}kcal</b>。</> : '摂取を入れると収支が出ます。'}
+              {' '}<a href={`#log?date=${today}`}>今日の記録を入れる</a>
             </p>
           </div>
-        </div>
 
-        {c.maintenanceSuggestion && (
-          <div className="flag info">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 11v6M12 7.5v.5" /></svg>
-            <span>
-              <b>記録から逆算した維持カロリーは {fmtInt(c.maintenanceSuggestion.kcal)}kcal です（いまの設定 {fmtInt(e.maintenanceKcal)}kcal）</b>
-              {fmtMD(c.maintenanceSuggestion.from)}〜{fmtMD(c.maintenanceSuggestion.to)} の {c.maintenanceSuggestion.nDays}日分の摂取・運動・体重変化から計算しました。
-              水分の増減でぶれるので、数週間分そろってから採用するのがおすすめです。
-              <span className="actions" style={{ marginTop: 8 }}>
-                <button className="btn sm" onClick={() => updateSettings({ ...settings, energy: { ...e, maintenanceKcal: c.maintenanceSuggestion!.kcal, maintenanceSource: 'measured' } })}>
-                  {fmtInt(c.maintenanceSuggestion.kcal)}kcal に更新
-                </button>
-              </span>
-            </span>
-          </div>
-        )}
-
-        {c.advice.length > 0 && (
-          <div className="stack">
-            {c.advice.map((a, i) => (
-              <Flag key={i} tone={a.tone} title={a.title} href={a.link ? `#${a.link}` : undefined}>{a.body}</Flag>
-            ))}
-          </div>
-        )}
-
-        <div className="grid g2">
-          <div className="card">
-            <h3>先週のふり返り（{fmtMD(wk.from)}〜{fmtMD(wk.to)}）</h3>
-            {wk.days === 0 ? <p className="note">記録がありません。</p> : (
-              <dl className="kv">
-                <dt>平均摂取</dt><dd>{wk.avgKcal != null ? `${fmtInt(wk.avgKcal)} kcal` : '—'}</dd>
-                <dt>平均収支</dt><dd>{wk.avgBalance != null ? `${fmtBalance(wk.avgBalance)} kcal/日` : '—'}</dd>
-                <dt>運動</dt><dd>{wk.exDays}日・{fmtInt(wk.exKcal)} kcal</dd>
-                <dt>7日平均体重</dt><dd>{wk.trendStart != null && wk.trendEnd != null ? `${fmt1(wk.trendStart)} → ${fmt1(wk.trendEnd)} kg` : '—'}</dd>
-              </dl>
-            )}
-            <p className="note"><a href="#review">ふり返りを詳しく見る</a></p>
-          </div>
           <div className="card">
             <h3>直近の記録</h3>
-            {days.length ? (
+            {days.length === 0 ? <p className="note">まだ記録がありません。</p> : (
               <ul className="tl">
                 {days.slice(-5).reverse().map((d) => (
                   <li key={d.date}>
                     <span className="time">{fmtMD(d.date)}</span>
-                    <a className="b" href={`#log?date=${d.date}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                      <b>{d.note ?? d.exNote ?? '記録'}</b>
-                      <span>
-                        {d.weight != null ? `${fmt1(d.weight)}kg` : '体重なし'}
-                        {d.p != null && ` ／ P${fmt1(d.p)}g`}
-                        {d.ex ? ` ／ 運動${fmtInt(d.ex)}kcal` : ''}
-                      </span>
+                    <a className="b" href={`#log?date=${d.date}`}>
+                      <b>{d.note ? d.note.slice(0, 46) : d.exNote ?? '記録のみ'}</b>
+                      <span>{d.weight != null ? `${fmt1(d.weight)}kg` : '体重なし'}{d.p != null && ` ／ P${fmt1(d.p)}g`}{d.ex ? ` ／ 運動${fmtInt(d.ex)}kcal` : ''}</span>
                     </a>
                     <span className="kcal num">{d.kcal != null ? fmtInt(d.kcal) : '—'}</span>
                   </li>
                 ))}
               </ul>
-            ) : <p className="note">まだ記録がありません。</p>}
+            )}
           </div>
         </div>
+
+        {(under > 0 || (sa != null && sa < 360) || streak >= 3) && (
+          <div className="stack">
+            {under > 0 && (
+              <Flag tone="warn" title={`下限${fmtInt(e.floorKcal)}kcalを${under}日割っています`}>連日割ると筋肉が落ち、基礎代謝が下がります。上限より下限を優先してください。</Flag>
+            )}
+            {sa != null && sa < 360 && (
+              <Flag tone="warn" title={`直近の平均睡眠が${hm(sa)}です`}>就寝{settings.habits.bedtime}を守ってください。睡眠不足は食欲と体重の判定をぶらします。</Flag>
+            )}
+            {streak >= 3 && <Flag tone="ok" title={`運動が${streak}日連続です`}>この調子で続けましょう。</Flag>}
+          </div>
+        )}
       </div>
     </>
   );

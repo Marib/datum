@@ -27,7 +27,7 @@ export default function SettingsPage() {
 
   return (
     <>
-      <PageHead title="設定" sub="すべての計算の土台になる値。入力は自動で保存されます" />
+      <PageHead title="数値を変える" sub="入力は自動で保存されます"><a href="#setup">← 設定に戻る</a></PageHead>
       <div className="grid g2">
         <div className="card">
           <h3>エネルギー</h3>
@@ -38,6 +38,11 @@ export default function SettingsPage() {
             <NumField id="s_t" label="1日の目標摂取" value={e.targetKcal} onChange={(v) => setE({ targetKcal: v ?? 0 })}
               error={e.targetKcal < e.floorKcal ? '下限より低くなっています' : undefined} />
             <NumField id="s_k" label="体脂肪1kgのエネルギー" value={e.kcalPerKg} onChange={(v) => setE({ kcalPerKg: v ?? 7000 })} />
+            <NumField id="s_up" label="上限（イベント日）" value={e.upperKcal ?? null} onChange={(v) => setE({ upperKcal: v })} hint="判定のグラフの帯の上端" />
+            <NumField id="s_bmr" label="基礎代謝（手入力）" value={e.bmrKcal ?? null} onChange={(v) => setE({ bmrKcal: v })}
+              hint={bmr != null ? 'ゴール画面の身長・生年から計算した値を使っています' : '身長・生年を入れない場合に'} />
+            <div className="field wide"><label htmlFor="s_mn">維持カロリーの根拠（任意）</label>
+              <input id="s_mn" value={e.maintenanceNote ?? ''} onChange={(ev) => setE({ maintenanceNote: ev.target.value })} placeholder="例：10/8〜10/31（n=23日）の実測から逆算" /></div>
           </div>
           <div style={{ marginTop: 12 }}>
             <p className="note" style={{ marginTop: 0 }}>
@@ -84,6 +89,10 @@ export default function SettingsPage() {
             <NumField id="s_sl" label="目標睡眠（分）" value={s.habits.sleepTargetMin} onChange={(v) => setS({ ...s, habits: { ...s.habits, sleepTargetMin: v ?? 420 } })} hint={`${Math.floor(s.habits.sleepTargetMin / 60)}時間${s.habits.sleepTargetMin % 60}分`} />
             <div className="field"><label htmlFor="s_bed">目標就寝</label><input id="s_bed" type="time" value={s.habits.bedtime.padStart(5, '0')} onChange={(ev) => setS({ ...s, habits: { ...s.habits, bedtime: ev.target.value.replace(/^0(\d):/, '$1:') } })} /></div>
             <NumField id="s_band" label="体重の許容帯 ±kg" step="0.1" value={s.bandKg} onChange={(v) => setS({ ...s, bandKg: v ?? 0.8 })} />
+            <div className="field wide"><label htmlFor="s_pm">運動ページの目標の文</label>
+              <input id="s_pm" value={s.pageSubs?.move ?? ''} onChange={(ev) => setS({ ...s, pageSubs: { ...s.pageSubs, move: ev.target.value } })} placeholder="例：ブートキャンプ30分を週5〜6回／筋トレは週2〜3回" /></div>
+            <div className="field wide"><label htmlFor="s_ps">睡眠ページの目標の文</label>
+              <input id="s_ps" value={s.pageSubs?.sleep ?? ''} onChange={(ev) => setS({ ...s, pageSubs: { ...s.pageSubs, sleep: ev.target.value } })} placeholder="例：就寝22:50／休日は7時間30分以上" /></div>
           </div>
         </div>
 

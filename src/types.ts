@@ -105,6 +105,8 @@ export interface Goal {
   exercisePerDay?: number;
   /** ゴールに合わせて1日の目標摂取を自動で更新するか */
   syncIntake?: boolean;
+  /** ダイエットを始めたときの体重（ホームの進み具合バーの左端。無ければ startWeight） */
+  initialWeight?: number | null;
 }
 
 export interface Energy {
@@ -121,6 +123,12 @@ export interface Energy {
   proteinG: number;
   fatG: number;
   carbG: number;
+  /** 基礎代謝（身長・生年が無いときの手入力） */
+  bmrKcal?: number | null;
+  /** 摂取の上限（イベント日） */
+  upperKcal?: number | null;
+  /** 維持カロリーの根拠メモ */
+  maintenanceNote?: string;
 }
 
 export interface Medication {
@@ -149,7 +157,12 @@ export interface Settings {
   habits: Habits;
   /** 体重の許容帯 ±kg */
   bandKg: number;
+  /** 運動・睡眠ページの見出しの下に出す目標の文 */
+  pageSubs?: { move?: string; sleep?: string };
 }
+
+/** 参照表を出すページ */
+export type RefPlace = 'notes' | 'meal' | 'move' | 'weight' | 'sleep' | 'judge' | 'setup';
 
 /** 検査値・外食メニューなど、自由に作れる参照表 */
 export interface RefTable {
@@ -158,6 +171,8 @@ export interface RefTable {
   columns: string[];
   rows: string[][];
   note: string;
+  /** どのページに出すか（無ければメモのページだけ） */
+  place?: RefPlace;
 }
 
 export interface Backup {

@@ -50,6 +50,7 @@ export function WeightChart({ days, settings, height = 240 }: { days: DayRecord[
         {band && <path className="band" d={band} />}
         {planPts.length > 1 && <polyline className="plan" points={planPts.map(([px, v]) => `${px.toFixed(1)},${y(v).toFixed(1)}`).join(' ')} />}
         {goalY != null && <line className="goal" x1={L} x2={W - R} y1={goalY} y2={goalY} />}
+        <polyline points={pts.map((p) => `${x(p.d.date).toFixed(1)},${y(p.w).toFixed(1)}`).join(' ')} fill="none" stroke="var(--brand)" strokeWidth={1} opacity={0.35} strokeLinejoin="round" />
         {ma.length > 1 && <polyline className="actual" points={ma.join(' ')} />}
         {pts.map((p) => {
           const ex = isExcludedDay(p.d.date, settings.medication);
