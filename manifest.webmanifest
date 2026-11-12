@@ -1,0 +1,1 @@
+{"name":"Datum — 逆算型ダイエットコーチ","short_name":"Datum","description":"ゴールから逆算して、毎日の記録で伴走するダイエットアプリ","start_url":".","display":"standalone","background_color":"#F1F3F1","theme_color":"#2E5244","lang":"ja","scope":"/datum/","icons":[{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any"},{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"maskable"}]}
