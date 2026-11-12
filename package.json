@@ -1,0 +1,30 @@
+{
+  "name": "datum",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "逆算型のダイエット記録アプリ（端末内保存のPWA）",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "idb": "^8.0.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "@types/react": "18.3",
+    "@types/react-dom": "18.3",
+    "@vitejs/plugin-react": "^4.7.0",
+    "fake-indexeddb": "^6.2.8",
+    "typescript": "5.6",
+    "vite": "5.4",
+    "vite-plugin-pwa": "^0.21.2",
+    "vitest": "2.1"
+  }
+}
