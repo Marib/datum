@@ -23,6 +23,61 @@ export interface DayRecord {
   /** 夜中に起きた回数 */
   woke: number | null;
   note: string | null;
+  /** 食事の明細。あるときは kcal・p・f・c はこの合計 */
+  meals?: MealItem[];
+}
+
+export type MealSlot = 'breakfast' | 'lunch' | 'dinner' | 'snack';
+
+export interface Nutr {
+  kcal: number | null;
+  p: number | null;
+  f: number | null;
+  c: number | null;
+}
+
+/** 食事の明細1品 */
+export interface MealItem {
+  id: string;
+  slot: MealSlot;
+  /** 'mext:<食品番号>'（食品成分表）または 'my:<id>'（マイ食品） */
+  ref: string;
+  name: string;
+  /** base が100gあたりか、1食あたりか */
+  per: '100g' | 'serving';
+  /** per が 100g なら g、serving なら食数 */
+  amount: number;
+  base: Nutr;
+  /** 「1パック」などと言った量（次回の重さを覚えるため） */
+  count?: { n: number; unit: string } | null;
+}
+
+/** 食品表示や外食メニューの値を自分で入れた食品（1食あたり） */
+export interface MyFood {
+  id: string;
+  name: string;
+  /** 1食の説明（例「1個」「1パック」） */
+  unit: string;
+  kcal: number | null;
+  p: number | null;
+  f: number | null;
+  c: number | null;
+}
+
+/** よく食べる組み合わせ（例「いつもの朝ごはん」） */
+export interface MealMenu {
+  id: string;
+  name: string;
+  items: Omit<MealItem, 'id' | 'slot'>[];
+}
+
+export interface Foodbook {
+  myFoods: MyFood[];
+  menus: MealMenu[];
+  /** '<ref>|<単位>' → 1単位のg（'<ref>|' は前回の量） */
+  portions: Record<string, number>;
+  /** ref → 使った回数 */
+  used: Record<string, number>;
 }
 
 export type Sex = 'female' | 'male';
@@ -112,4 +167,5 @@ export interface Backup {
   settings: Settings;
   days: DayRecord[];
   refs: RefTable[];
+  foodbook?: Foodbook;
 }

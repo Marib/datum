@@ -1,6 +1,9 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
-import type { Backup, DayRecord, RefTable, Settings } from '../types';
+import type { Backup, DayRecord, Foodbook, MealItem, RefTable, Settings } from '../types';
 import { defaultSettings, emptyDay, isValidISODate } from './calc';
+import { emptyFoodbook } from './food';
+
+export interface AllData { days: DayRecord[]; settings: Settings; refs: RefTable[]; foodbook: Foodbook }
 
 interface DatumDB extends DBSchema {
   days: { key: string; value: DayRecord };
@@ -30,17 +33,19 @@ export async function requestPersistence(): Promise<boolean | null> {
   return null;
 }
 
-export async function loadAll(): Promise<{ days: DayRecord[]; settings: Settings; refs: RefTable[] }> {
+export async function loadAll(): Promise<AllData> {
   const d = await db();
-  const [days, settings, refs] = await Promise.all([
+  const [days, settings, refs, foodbook] = await Promise.all([
     d.getAll('days'),
     d.get('kv', 'settings') as Promise<Settings | undefined>,
     d.get('kv', 'refs') as Promise<RefTable[] | undefined>,
+    d.get('kv', 'foodbook'),
   ]);
   return {
     days: days.map(normalizeDay),
     settings: mergeSettings(settings),
     refs: refs ?? [],
+    foodbook: normalizeFoodbook(foodbook),
   };
 }
 
@@ -60,7 +65,10 @@ export async function saveSettings(s: Settings) {
 export async function saveRefs(r: RefTable[]) {
   await (await db()).put('kv', r, 'refs');
 }
-export async function replaceAll(b: { days: DayRecord[]; settings: Settings; refs: RefTable[] }) {
+export async function saveFoodbook(b: Foodbook) {
+  await (await db()).put('kv', b, 'foodbook');
+}
+export async function replaceAll(b: AllData) {
   const d = await db();
   const tx = d.transaction(['days', 'kv'], 'readwrite');
   await tx.objectStore('days').clear();
@@ -68,6 +76,7 @@ export async function replaceAll(b: { days: DayRecord[]; settings: Settings; ref
     ...b.days.map((r) => tx.objectStore('days').put(r)),
     tx.objectStore('kv').put(b.settings, 'settings'),
     tx.objectStore('kv').put(b.refs, 'refs'),
+    tx.objectStore('kv').put(b.foodbook, 'foodbook'),
     tx.done,
   ]);
 }
@@ -98,6 +107,50 @@ export function normalizeDay(raw: unknown): DayRecord {
     wake: strOrNull(r.wake),
     woke: numOrNull(r.woke),
     note: strOrNull(r.note),
+    ...(Array.isArray(r.meals) ? { meals: r.meals.map(normalizeItem).filter((x): x is MealItem => x != null) } : {}),
+  };
+}
+
+const SLOT_KEYS = ['breakfast', 'lunch', 'dinner', 'snack'];
+const nutr = (v: unknown) => {
+  const o = (v ?? {}) as Record<string, unknown>;
+  return { kcal: numOrNull(o.kcal), p: numOrNull(o.p), f: numOrNull(o.f), c: numOrNull(o.c) };
+};
+
+function normalizeItem(raw: unknown): MealItem | null {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  const amount = numOrNull(r.amount);
+  if (typeof r.ref !== 'string' || typeof r.name !== 'string' || amount == null) return null;
+  const cnt = r.count as { n?: unknown; unit?: unknown } | null | undefined;
+  return {
+    id: String(r.id ?? Math.random().toString(36).slice(2)),
+    slot: (SLOT_KEYS.includes(String(r.slot)) ? r.slot : 'snack') as MealItem['slot'],
+    ref: r.ref,
+    name: r.name,
+    per: r.per === 'serving' ? 'serving' : '100g',
+    amount,
+    base: nutr(r.base),
+    count: cnt && typeof cnt.n === 'number' && typeof cnt.unit === 'string' ? { n: cnt.n, unit: cnt.unit } : null,
+  };
+}
+
+export function normalizeFoodbook(raw: unknown): Foodbook {
+  const b = emptyFoodbook();
+  if (!raw || typeof raw !== 'object') return b;
+  const r = raw as Record<string, unknown>;
+  const rec = (v: unknown) => Object.fromEntries(Object.entries((v ?? {}) as Record<string, unknown>).filter(([, x]) => typeof x === 'number' && Number.isFinite(x))) as Record<string, number>;
+  return {
+    myFoods: Array.isArray(r.myFoods)
+      ? r.myFoods.filter((m) => m && typeof m.name === 'string').map((m) => ({ id: String(m.id), name: m.name, unit: String(m.unit ?? '1食'), ...nutr(m) }))
+      : [],
+    menus: Array.isArray(r.menus)
+      ? r.menus.filter((m) => m && typeof m.name === 'string' && Array.isArray(m.items)).map((m) => ({
+          id: String(m.id), name: m.name,
+          items: m.items.map(normalizeItem).filter((x: MealItem | null): x is MealItem => x != null).map(({ id: _i, slot: _s, ...rest }: MealItem) => rest),
+        }))
+      : [],
+    portions: rec(r.portions),
+    used: rec(r.used),
   };
 }
 
@@ -114,11 +167,11 @@ export function mergeSettings(s: Partial<Settings> | undefined): Settings {
   };
 }
 
-export function makeBackup(days: DayRecord[], settings: Settings, refs: RefTable[]): Backup {
-  return { app: 'datum', version: 1, exportedAt: new Date().toISOString(), settings, days, refs };
+export function makeBackup(days: DayRecord[], settings: Settings, refs: RefTable[], foodbook: Foodbook): Backup {
+  return { app: 'datum', version: 1, exportedAt: new Date().toISOString(), settings, days, refs, foodbook };
 }
 
-export function parseBackup(text: string): { days: DayRecord[]; settings: Settings; refs: RefTable[] } {
+export function parseBackup(text: string): AllData {
   let j: unknown;
   try {
     j = JSON.parse(text);
@@ -135,5 +188,5 @@ export function parseBackup(text: string): { days: DayRecord[]; settings: Settin
         .filter((t): t is RefTable => !!t && typeof t === 'object' && Array.isArray((t as RefTable).columns) && Array.isArray((t as RefTable).rows))
         .map((t) => ({ id: String(t.id ?? crypto.randomUUID()), title: String(t.title ?? ''), columns: t.columns.map(String), rows: t.rows.map((r) => r.map(String)), note: String(t.note ?? '') }))
     : [];
-  return { days, settings: mergeSettings(o.settings), refs };
+  return { days, settings: mergeSettings(o.settings), refs, foodbook: normalizeFoodbook(o.foodbook) };
 }

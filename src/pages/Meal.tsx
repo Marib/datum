@@ -1,9 +1,17 @@
+import { useEffect, useState } from 'react';
 import { useStore } from '../store';
+import { useHash } from '../route';
+import { isValidISODate } from '../lib/calc';
+import { MealRecorder, MyFoods } from '../components/MealRecorder';
 import { fmt1, fmtInt, fmtMD, isExcludedDay, lastNDays, mean, pfcRatio } from '../lib/calc';
 import { Flag, PageHead, Stat } from '../components/ui';
 
 export default function Meal() {
   const { days, settings, today } = useStore();
+  const { query } = useHash();
+  const qd = query.get('date');
+  const [date, setDate] = useState(qd && isValidISODate(qd) ? qd : today);
+  useEffect(() => { if (qd && isValidISODate(qd)) setDate(qd); }, [qd]);
   const e = settings.energy;
   const wk = lastNDays(days, 7, today);
   const nums = (f: (d: (typeof days)[number]) => number | null) => wk.map(f).filter((v): v is number => v != null);
@@ -12,7 +20,11 @@ export default function Meal() {
 
   return (
     <>
-      <PageHead title="食事" sub="直近7日の平均と、28日分の内訳" />
+      <PageHead title="食事" sub="食べたものを入れると、摂取kcalとPFCを計算して記録します" />
+      <div className="card" style={{ marginBottom: 14 }}>
+        <h3>食事を記録</h3>
+        <MealRecorder date={date} onDate={setDate} />
+      </div>
       <div className="grid g3" style={{ marginBottom: 14 }}>
         <Stat title="平均摂取" value={ak != null ? fmtInt(ak) : '—'} unit="kcal"
           note={ak != null ? `目標 ${fmtInt(e.targetKcal)} に対し ${ak >= e.targetKcal ? '+' : '−'}${fmtInt(Math.abs(ak - e.targetKcal))}` : '記録なし'}
@@ -58,6 +70,22 @@ export default function Meal() {
         <p className="note">
           判定：摂取が下限 {fmtInt(e.floorKcal)}kcal 以上、脂質が 20〜30%エネルギー、たんぱく質が目標の8割以上なら ○。
           脂質の目標量 20〜30%エネルギーは「日本人の食事摂取基準（2025年版）」の成人の目標量です。
+        </p>
+      </div>
+      <div className="card" style={{ marginTop: 14 }}>
+        <h3>マイ食品・マイメニュー</h3>
+        <MyFoods />
+      </div>
+      <div className="card" style={{ marginTop: 14 }}>
+        <h3>食品の栄養の出典</h3>
+        <p className="note" style={{ marginTop: 0 }}>
+          出典：文部科学省「日本食品標準成分表（八訂）増補2023年」第2章（データ）
+          （<a href="https://www.mext.go.jp/a_menu/syokuhinseibun/mext_00001.html" target="_blank" rel="noopener">https://www.mext.go.jp/a_menu/syokuhinseibun/mext_00001.html</a>）（2026年11月12日に利用）。
+          2,538食品の可食部100gあたりのエネルギー（kcal）・たんぱく質・脂質・炭水化物を使っています。( ) 付きの推計値はそのまま、Tr（微量）は0として計算します。
+        </p>
+        <p className="note">
+          ゆで・焼きなど調理後の値がある食品は、食べた状態のものを選ぶと実際に近くなります。重さは皮・骨などを除いた食べた部分のgです。
+          「ごはん」→「水稲めし」のような言い換えはアプリが用意した検索用の対応表で、栄養の値には関わりません。
         </p>
       </div>
       <div style={{ marginTop: 14 }}>

@@ -39,7 +39,9 @@ export function VoiceInput({ defaultDate, onSaved, autoStart = false }: { defaul
   const date = /昨日|きのう|おととい|一昨日/.test(text) ? parsed.date : defaultDate;
   const cur = days.find((d) => d.date === date) ?? emptyDay(date);
   // 表示は体重→食事→運動→睡眠→メモの順
-  const keys = (Object.keys(VOICE_LABELS) as (keyof VoiceFields)[]).filter((k) => k in parsed.fields);
+  // 食事を明細で入れている日は、摂取とPFCは明細の合計なので声では変えない
+  const itemized = !!cur.meals?.length;
+  const keys = (Object.keys(VOICE_LABELS) as (keyof VoiceFields)[]).filter((k) => k in parsed.fields && !(itemized && ['kcal', 'p', 'f', 'c'].includes(k)));
 
   function start() {
     setErr(null);

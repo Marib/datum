@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import type { DayRecord, RefTable, Settings } from './types';
+import type { DayRecord, Foodbook, RefTable, Settings } from './types';
+import { emptyFoodbook } from './lib/food';
 import { defaultSettings, sortDays, todayISO } from './lib/calc';
 import * as store from './lib/db';
 
@@ -9,13 +10,15 @@ interface Ctx {
   days: DayRecord[];
   settings: Settings;
   refs: RefTable[];
+  foodbook: Foodbook;
   today: string;
   saveDay: (d: DayRecord) => Promise<void>;
   removeDay: (date: string) => Promise<void>;
   saveDaysBulk: (ds: DayRecord[]) => Promise<void>;
   updateSettings: (s: Settings) => Promise<void>;
   updateRefs: (r: RefTable[]) => Promise<void>;
-  replaceAll: (b: { days: DayRecord[]; settings: Settings; refs: RefTable[] }) => Promise<void>;
+  updateFoodbook: (b: Foodbook) => Promise<void>;
+  replaceAll: (b: store.AllData) => Promise<void>;
   resetAll: () => Promise<void>;
 }
 
@@ -27,6 +30,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [days, setDays] = useState<DayRecord[]>([]);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [refs, setRefs] = useState<RefTable[]>([]);
+  const [foodbook, setFoodbook] = useState<Foodbook>(emptyFoodbook);
   const [today, setToday] = useState(todayISO);
 
   useEffect(() => {
@@ -36,6 +40,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setDays(sortDays(r.days));
         setSettings(r.settings);
         setRefs(r.refs);
+        setFoodbook(r.foodbook);
       })
       .catch((e) => setError(`保存領域を開けませんでした（${e?.message ?? e}）。プライベートブラウズでは保存できません。`))
       .finally(() => setReady(true));
@@ -69,22 +74,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     await store.saveRefs(r);
     setRefs(r);
   }, []);
-  const replaceAll = useCallback(async (b: { days: DayRecord[]; settings: Settings; refs: RefTable[] }) => {
+  const updateFoodbook = useCallback(async (b: Foodbook) => {
+    await store.saveFoodbook(b);
+    setFoodbook(b);
+  }, []);
+  const replaceAll = useCallback(async (b: store.AllData) => {
     await store.replaceAll(b);
     setDays(sortDays(b.days));
     setSettings(b.settings);
     setRefs(b.refs);
+    setFoodbook(b.foodbook);
   }, []);
   const resetAll = useCallback(async () => {
     await store.clearAll();
     setDays([]);
     setSettings(defaultSettings());
     setRefs([]);
+    setFoodbook(emptyFoodbook());
   }, []);
 
   const v = useMemo(
-    () => ({ ready, error, days, settings, refs, today, saveDay, removeDay, saveDaysBulk, updateSettings, updateRefs, replaceAll, resetAll }),
-    [ready, error, days, settings, refs, today, saveDay, removeDay, saveDaysBulk, updateSettings, updateRefs, replaceAll, resetAll],
+    () => ({ ready, error, days, settings, refs, foodbook, today, saveDay, removeDay, saveDaysBulk, updateSettings, updateRefs, updateFoodbook, replaceAll, resetAll }),
+    [ready, error, days, settings, refs, foodbook, today, saveDay, removeDay, saveDaysBulk, updateSettings, updateRefs, updateFoodbook, replaceAll, resetAll],
   );
   return <C.Provider value={v}>{children}</C.Provider>;
 }

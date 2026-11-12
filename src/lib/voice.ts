@@ -2,7 +2,7 @@ import type { DayRecord } from '../types';
 import { addDays } from './calc';
 
 /** 音声（または手入力の文章）から読み取れた項目 */
-export type VoiceFields = Partial<Omit<DayRecord, 'date'>>;
+export type VoiceFields = Partial<Omit<DayRecord, 'date' | 'meals'>>;
 export interface VoiceParse {
   /** 「昨日」「おととい」と言った場合の対象日 */
   date: string;

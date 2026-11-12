@@ -47,15 +47,15 @@ export function Empty({ children }: { children: ReactNode }) {
 /** 数値入力。空欄は null。 */
 export function NumField(props: {
   id: string; label: string; value: number | null; onChange: (v: number | null) => void;
-  step?: string; placeholder?: string; hint?: ReactNode; min?: number; max?: number; error?: string;
+  step?: string; placeholder?: string; hint?: ReactNode; min?: number; max?: number; error?: string; disabled?: boolean;
 }) {
-  const { id, label, value, onChange, step, placeholder, hint, min, max, error } = props;
+  const { id, label, value, onChange, step, placeholder, hint, min, max, error, disabled } = props;
   return (
     <div className={`field${error ? ' err' : ''}`}>
       <label htmlFor={id}>{label}</label>
       <input
         id={id} type="number" inputMode={step && step !== '1' ? 'decimal' : 'numeric'} step={step ?? '1'}
-        min={min} max={max} placeholder={placeholder}
+        min={min} max={max} placeholder={placeholder} disabled={disabled}
         value={value ?? ''}
         onChange={(e) => {
           const s = e.target.value;

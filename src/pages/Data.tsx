@@ -6,7 +6,7 @@ import { fmtMD, todayISO } from '../lib/calc';
 import { download, PageHead, readFileText } from '../components/ui';
 
 export default function DataPage() {
-  const { days, settings, refs, saveDaysBulk, replaceAll, resetAll } = useStore();
+  const { days, settings, refs, foodbook, saveDaysBulk, replaceAll, resetAll } = useStore();
   const [csv, setCsv] = useState<CsvResult | null>(null);
   const [paste, setPaste] = useState('');
   const [mode, setMode] = useState<MergeMode>('overwrite');
@@ -116,7 +116,7 @@ export default function DataPage() {
           <h3>書き出す</h3>
           <div className="actions" style={{ marginTop: 6 }}>
             <button className="btn" disabled={!days.length} onClick={() => download(`datum-records-${stamp}.csv`, exportCSV(days), 'text/csv;charset=utf-8')}>記録をCSVで書き出す</button>
-            <button className="btn ghost" onClick={() => download(`datum-backup-${stamp}.json`, JSON.stringify(makeBackup(days, settings, refs), null, 2), 'application/json')}>
+            <button className="btn ghost" onClick={() => download(`datum-backup-${stamp}.json`, JSON.stringify(makeBackup(days, settings, refs, foodbook), null, 2), 'application/json')}>
               バックアップ（JSON）
             </button>
           </div>

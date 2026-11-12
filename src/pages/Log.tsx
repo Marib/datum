@@ -96,11 +96,11 @@ export default function Log() {
           <NumField id="f_weight" label="体重 kg" step="0.1" value={rec.weight} onChange={(v) => set('weight', v)} placeholder="70.5" error={errs.weight}
             hint={settings.medication.enabled && isExcludedDay(date, settings.medication) ? `${settings.medication.label}・判定対象外` : '起床・トイレ後、食事前'} />
 
-          <div className="fieldset-title">食事</div>
-          <NumField id="f_kcal" label="摂取 kcal" value={rec.kcal} onChange={(v) => set('kcal', v)} placeholder={String(settings.energy.targetKcal)} error={errs.kcal} />
-          <NumField id="f_p" label="たんぱく質 g" step="0.1" value={rec.p} onChange={(v) => set('p', v)} placeholder={String(settings.energy.proteinG)} error={errs.p} />
-          <NumField id="f_f" label="脂質 g" step="0.1" value={rec.f} onChange={(v) => set('f', v)} placeholder={String(settings.energy.fatG)} error={errs.f} />
-          <NumField id="f_c" label="炭水化物 g" step="0.1" value={rec.c} onChange={(v) => set('c', v)} placeholder={String(settings.energy.carbG)} error={errs.c} />
+          <div className="fieldset-title">食事{rec.meals?.length ? <>（<a href={`#meal?date=${date}`}>食事画面の明細 {rec.meals.length}品</a>の合計。変えるときは明細を直します）</> : <>（<a href={`#meal?date=${date}`}>食べたものから計算する</a>）</>}</div>
+          <NumField id="f_kcal" label="摂取 kcal" value={rec.kcal} disabled={!!rec.meals?.length} onChange={(v) => set('kcal', v)} placeholder={String(settings.energy.targetKcal)} error={errs.kcal} />
+          <NumField id="f_p" label="たんぱく質 g" step="0.1" value={rec.p} disabled={!!rec.meals?.length} onChange={(v) => set('p', v)} placeholder={String(settings.energy.proteinG)} error={errs.p} />
+          <NumField id="f_f" label="脂質 g" step="0.1" value={rec.f} disabled={!!rec.meals?.length} onChange={(v) => set('f', v)} placeholder={String(settings.energy.fatG)} error={errs.f} />
+          <NumField id="f_c" label="炭水化物 g" step="0.1" value={rec.c} disabled={!!rec.meals?.length} onChange={(v) => set('c', v)} placeholder={String(settings.energy.carbG)} error={errs.c} />
 
           <div className="fieldset-title">運動</div>
           <NumField id="f_ex" label="運動 kcal" value={rec.ex} onChange={(v) => set('ex', v)} placeholder="258" error={errs.ex}

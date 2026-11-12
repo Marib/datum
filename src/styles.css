@@ -238,3 +238,27 @@ a.flag:hover { filter: brightness(0.98); }
 .voice-result { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 6px; }
 .voice .tbl th, .voice .tbl td { white-space: normal; }
 .voice .tbl td:first-child { white-space: nowrap; }
+
+/* ───────── 食事の明細 ───────── */
+.seg button.on { background: var(--brand); color: var(--on-brand); }
+.small { font-size: 12px; }
+.linkbtn { color: var(--brand); font-size: 12.5px; text-decoration: underline; text-underline-offset: 2px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.chip { font-size: 12.5px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--brand); color: var(--brand); background: var(--brand-soft); }
+.meal-preview select { display: block; width: 100%; max-width: 360px; margin-top: 4px; font: inherit; font-size: 16px; padding: 5px 6px; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; }
+.meal-preview td:first-child { min-width: 180px; }
+.amt { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; font-size: 13px; color: var(--ink-2); }
+.amt input { width: 68px; font: inherit; font-size: 16px; text-align: right; padding: 4px 6px; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; font-variant-numeric: tabular-nums; }
+.amt input.need { border-color: var(--alert); background: color-mix(in srgb, var(--alert) 8%, var(--bg)); }
+.meal-day { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
+.meal-total { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; align-items: baseline; margin-bottom: 8px; font-size: 14px; }
+.meal-total b { font-size: 20px; }
+.meal-slot { border-bottom: 1px solid var(--line); padding: 8px 0; }
+.meal-slot header { display: flex; align-items: baseline; gap: 10px; font-size: 14px; }
+.meal-slot header .sp { flex: 1; }
+.meal-item { display: flex; align-items: center; gap: 8px; padding: 5px 0 5px 10px; font-size: 13.5px; }
+.meal-item .nm { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.meal-item .kc { width: 70px; text-align: right; color: var(--ink-2); font-size: 12.5px; }
+.meal-item .x { width: 28px; height: 28px; border-radius: 50%; color: var(--ink-3); font-size: 16px; }
+.meal-item .x:hover { background: var(--surface-2); color: var(--alert); }
+.field input:disabled { opacity: .6; }
