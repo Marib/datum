@@ -94,9 +94,11 @@ src/
 
 ## 公開する（GitHub Pages）
 
-1. リポジトリの Settings → Pages → Source を **GitHub Actions** にする
-2. Settings → Secrets and variables → Actions → Variables に `DEPLOY_PAGES` = `true` を追加
-3. `main` に push すると `https://<ユーザー名>.github.io/<リポジトリ名>/` で公開されます
+1. リポジトリの設定ページ `https://github.com/<ユーザー名>/<リポジトリ名>/settings/pages` を開く
+   （アカウント全体の設定にある Pages ではありません。そちらは独自ドメインの登録画面です）
+2. 「Build and deployment」の **Source** を **GitHub Actions** にする
+3. Actions タブで「Deploy to GitHub Pages」を実行（以後は `main` への push で自動公開）
+4. `https://<ユーザー名>.github.io/<リポジトリ名>/` で開けます
 
 - private リポジトリで Pages を使うには、GitHub の有料プラン（Pro など）が必要です
 - 公開されるのはアプリのプログラムだけです。記録は各端末のブラウザ内にあり、公開URLから他人に見えることはありません
