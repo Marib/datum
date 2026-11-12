@@ -46,6 +46,10 @@ export interface Goal {
   targetWeight: number;
   /** 目標期日 YYYY-MM-DD */
   targetDate: string;
+  /** 計画で見込む1日の平均運動 kcal */
+  exercisePerDay?: number;
+  /** ゴールに合わせて1日の目標摂取を自動で更新するか */
+  syncIntake?: boolean;
 }
 
 export interface Energy {

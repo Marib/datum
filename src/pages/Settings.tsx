@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { SaveBadge, useAutoSave } from '../useAutoSave';
 import { useStore } from '../store';
 import type { Settings } from '../types';
 import { addDays, bmrFor, estimateMaintenance, fmt1, fmtInt, fmtMD, lastWithWeight } from '../lib/calc';
@@ -7,8 +8,6 @@ import { NumField, PageHead } from '../components/ui';
 export default function SettingsPage() {
   const { settings, updateSettings, days, today } = useStore();
   const [s, setS] = useState<Settings>(settings);
-  const [msg, setMsg] = useState<string | null>(null);
-  useEffect(() => setS(settings), [settings]);
 
   const e = s.energy;
   const setE = (patch: Partial<Settings['energy']>) => setS({ ...s, energy: { ...e, ...patch } });
@@ -17,17 +16,18 @@ export default function SettingsPage() {
   const est = estimateMaintenance(days, e, { from: addDays(today, -27), to: today });
   const estAll = estimateMaintenance(days, e);
   const pfcKcal = e.proteinG * 4 + e.fatG * 9 + e.carbG * 4;
-  const dirty = JSON.stringify(s) !== JSON.stringify(settings);
-
-  async function save() {
-    await updateSettings(s);
-    setMsg('保存しました');
-    setTimeout(() => setMsg(null), 2500);
-  }
+  // 入力したそばから自動保存。おかしな値の間は保存しない。
+  const invalidMsg =
+    e.maintenanceKcal < 800 || e.maintenanceKcal > 5000 ? '維持カロリーは800〜5,000で入れてください'
+    : e.floorKcal < 800 ? '安全下限は800以上で入れてください'
+    : e.targetKcal < 800 ? '目標摂取は800以上で入れてください'
+    : e.kcalPerKg <= 0 ? '体脂肪1kgのエネルギーを入れてください'
+    : null;
+  const status = useAutoSave(s, (v) => updateSettings({ ...v, goal: settings.goal }), !invalidMsg);
 
   return (
     <>
-      <PageHead title="設定" sub="すべての計算の土台になる値" />
+      <PageHead title="設定" sub="すべての計算の土台になる値。入力は自動で保存されます" />
       <div className="grid g2">
         <div className="card">
           <h3>エネルギー</h3>
@@ -110,10 +110,8 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
-      <div className="actions" style={{ marginTop: 16, position: 'sticky', bottom: 12 }}>
-        <button className="btn" onClick={save} disabled={!dirty}>設定を保存</button>
-        {dirty && <button className="btn ghost" onClick={() => setS(settings)}>元に戻す</button>}
-        {msg && <span className="msg ok" role="status">{msg}</span>}
+      <div className="actions" style={{ marginTop: 16 }}>
+        <SaveBadge status={status} invalidMsg={invalidMsg} />
       </div>
     </>
   );

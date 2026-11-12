@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import { SaveBadge, useAutoSave } from '../useAutoSave';
 import { useStore } from '../store';
 import type { Goal, Profile } from '../types';
 import {
@@ -19,9 +20,8 @@ export default function GoalPage() {
   const [startWeight, setStartWeight] = useState<number | null>(g0?.startWeight ?? (latest != null ? Math.round(latest * 10) / 10 : null));
   const [targetWeight, setTargetWeight] = useState<number | null>(g0?.targetWeight ?? null);
   const [targetDate, setTargetDate] = useState(g0?.targetDate ?? addDays(today, 180));
-  const [exPerDay, setExPerDay] = useState<number | null>(Math.round(avgExercise(days, today)));
-  const [applyIntake, setApplyIntake] = useState(true);
-  const [msg, setMsg] = useState<string | null>(null);
+  const [exPerDay, setExPerDay] = useState<number | null>(g0?.exercisePerDay ?? Math.round(avgExercise(days, today)));
+  const [applyIntake, setApplyIntake] = useState(g0?.syncIntake ?? true);
 
   const e = settings.energy;
   const valid = startWeight != null && targetWeight != null && isValidISODate(startDate) && isValidISODate(targetDate);
@@ -35,21 +35,32 @@ export default function GoalPage() {
 
   const setMonths = (m: number) => setTargetDate(addDays(startDate, Math.round(m * 30.44)));
 
-  async function save() {
-    if (!draft || !plan || plan.level === 'invalid') return;
-    if (plan.level === 'too-fast' && !confirm('ペースが上限目安を超えています。それでも保存しますか？')) return;
-    await updateSettings({
-      ...settings,
-      profile,
-      goal: draft,
-      energy: applyIntake && rec ? { ...e, targetKcal: rec } : e,
-    });
-    setMsg('ゴールを保存しました。ホームで毎日の進み具合を確認できます。');
-  }
+  // 入力したそばから自動保存（1回入れたら覚えておく）
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+  const goalOk = !!draft && !!plan && plan.level !== 'invalid';
+  const invalidMsg =
+    startWeight != null && targetWeight != null && targetWeight >= startWeight ? '目標体重を開始体重より軽くすると保存されます'
+    : plan?.level === 'invalid' ? '期日を開始日より後にすると保存されます'
+    : null;
+  const status = useAutoSave(
+    { profile, draft: goalOk ? draft : null, exPerDay, applyIntake, rec },
+    async (v) => {
+      const cur = settingsRef.current;
+      const goal = v.draft ? { ...v.draft, exercisePerDay: v.exPerDay ?? 0, syncIntake: v.applyIntake } : cur.goal;
+      await updateSettings({
+        ...cur,
+        profile: v.profile,
+        goal,
+        energy: v.draft && v.applyIntake && v.rec ? { ...cur.energy, targetKcal: v.rec } : cur.energy,
+      });
+    },
+    true,
+  );
 
   return (
     <>
-      <PageHead title="ゴール" sub="目標体重と期日から、毎日の目標を逆算します" />
+      <PageHead title="ゴール" sub="目標体重と期日から、毎日の目標を逆算します。入力は自動で保存されます" />
 
       {g0 && c.replan && (
         <div className="card" style={{ marginBottom: 14 }}>
@@ -133,11 +144,11 @@ export default function GoalPage() {
           </div>
           <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 14, fontSize: 14 }}>
             <input type="checkbox" checked={applyIntake} onChange={(ev) => setApplyIntake(ev.target.checked)} />
-            1日の目標摂取を {rec != null ? fmtInt(rec) : '—'}kcal に更新する（いま {fmtInt(e.targetKcal)}kcal）
+            1日の目標摂取をゴールに合わせて自動で更新する（推奨 {rec != null ? fmtInt(rec) : '—'}kcal ／ いま {fmtInt(e.targetKcal)}kcal）
           </label>
           <div className="actions" style={{ marginTop: 12 }}>
-            <button className="btn" onClick={save}>このゴールで始める</button>
-            {msg && <span className="msg ok" role="status">{msg}</span>}
+            <SaveBadge status={status} />
+            <a className="btn ghost sm" href="#home">ホームで進み具合を見る</a>
           </div>
           <p className="note">
             計算：必要な赤字 ＝ 減らす量 × {fmtInt(e.kcalPerKg)}kcal ÷ 日数。目標摂取 ＝ 維持カロリー ＋ 運動 − 必要な赤字（ただし下限 {fmtInt(e.floorKcal)}kcal で止める）。
@@ -148,6 +159,7 @@ export default function GoalPage() {
       )}
       {plan && plan.level === 'invalid' && <div style={{ marginTop: 14 }}><Flag tone="warn" title={plan.messages[0]} /></div>}
       {!valid && <p className="note">体重・目標体重・期日を入れると計画を計算します。</p>}
+      <div className="actions" style={{ marginTop: 12 }}><SaveBadge status={status} invalidMsg={invalidMsg} /></div>
     </>
   );
 }
