@@ -6,6 +6,7 @@ import {
   addDays, balance, emptyDay, fmt1, fmtBalance, fmtHM, fmtInt, fmtMD, isExcludedDay, isValidISODate, parseHM, sleepMinutes,
 } from '../lib/calc';
 import { NumField, PageHead } from '../components/ui';
+import { VoiceInput } from '../components/VoiceInput';
 
 type Errors = Partial<Record<keyof DayRecord, string>>;
 
@@ -30,6 +31,7 @@ export default function Log() {
   const [msg, setMsg] = useState<{ text: string; cls: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [showAll, setShowAll] = useState(false);
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
     if (qd && isValidISODate(qd)) setDate(qd);
@@ -39,7 +41,7 @@ export default function Log() {
     setMsg(null);
     // days の更新（保存直後）で入力中の値を消さないよう、日付が変わったときだけ読み込む
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date]);
+  }, [date, reload]);
 
   const exists = days.some((d) => d.date === date);
   const errs = validate(rec);
@@ -77,6 +79,10 @@ export default function Log() {
   return (
     <>
       <PageHead title="記録する" sub="日付を選ぶと、その日の記録を読み込みます" />
+      <div className="card" style={{ marginBottom: 14 }}>
+        <h3>話して記録</h3>
+        <VoiceInput defaultDate={date} onSaved={(d) => { setDate(d); setReload((n) => n + 1); }} />
+      </div>
       <div className="card">
         <form className="form" onSubmit={onSubmit} noValidate>
           <div className={`field${errs.date ? ' err' : ''}`}>

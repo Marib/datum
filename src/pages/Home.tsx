@@ -2,6 +2,8 @@ import { useStore } from '../store';
 import { coach, weekSummary } from '../lib/coach';
 import { balance, fmt1, fmtBalance, fmtInt, fmtLongDate, fmtMD, isExcludedDay, addDays } from '../lib/calc';
 import { Flag, PageHead } from '../components/ui';
+import { VoiceInput } from '../components/VoiceInput';
+import { useState } from 'react';
 
 export default function Home() {
   const { days, settings, today, updateSettings } = useStore();
@@ -13,6 +15,7 @@ export default function Home() {
   const rem = c.todayTarget - kcal;
   const frac = Math.max(0, Math.min(1, rem / c.todayTarget));
   const wk = weekSummary(days, settings, addDays(today, -1));
+  const [voice, setVoice] = useState(false);
 
   /* 逆算パネルの見出し */
   let head: React.ReactNode = 'ゴールを設定しましょう';
@@ -76,6 +79,21 @@ export default function Home() {
           )}
           <p className="verdict">{verdict}</p>
         </section>
+
+        <div className="card voice-card">
+          {voice ? (
+            <>
+              <h3>話して記録</h3>
+              <VoiceInput defaultDate={today} autoStart />
+              <div className="actions" style={{ marginTop: 8 }}><button className="btn ghost sm" onClick={() => setVoice(false)}>閉じる</button></div>
+            </>
+          ) : (
+            <button className="voice-cta" onClick={() => setVoice(true)}>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>
+              <span><b>話して記録する</b><small>「体重70.5キロ、1600キロカロリー、ブートキャンプ30分で258キロカロリー」のように話すだけ</small></span>
+            </button>
+          )}
+        </div>
 
         <div className="grid g2">
           <div className="card">
